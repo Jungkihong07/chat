@@ -118,7 +118,7 @@ ch.on('postgres_changes',
     clearTimeout(typingTimer); typingTimer = setTimeout(() => typing.textContent = '', 2000) })
   .on('broadcast', { event: 'shake' }, () => document.body.animate(
     [{ transform: 'translateX(-8px)' }, { transform: 'translateX(8px)' }], { duration: 80, iterations: 6 }))
-  .subscribe(s => s === 'SUBSCRIBED' && ch.track({ nick: me }))
+  .subscribe((s, err) => s === 'SUBSCRIBED' ? ch.track({ nick: me }) : console.warn('realtime:', s, err?.message ?? ''))
 
 // 폼 기본 Enter 제출에 의존하지 않음 (일부 브라우저에서 안 됨). 한글 조합 중 Enter는 무시
 msg.onkeydown = e => { if (e.key === 'Enter' && !e.isComposing) { e.preventDefault(); f.requestSubmit() } }
