@@ -34,19 +34,34 @@ body.boss .msg{display:none}
 .office #log li.hdr::before{content:''}
 .office footer{background:#f3f3f3;border-top:1px solid #ccc;color:#444}
 
-#guide{margin:auto;max-width:min(440px,calc(100% - 32px));padding:20px 22px;border:1px solid #888;border-radius:8px;background:inherit;color:inherit;font:13px/1.7 system-ui,sans-serif}
-#guide::backdrop{background:#0008}
-#guide h2{font-size:16px;margin:4px 0 6px}
-#guide{max-height:calc(100vh - 32px);overflow:auto}
-#guide ul{padding-left:18px;margin:8px 0 14px}
-#guide kbd,#guide code{font-family:Menlo,monospace;background:#8883;border-radius:3px;padding:0 4px}
-#guide button{float:right;padding:4px 14px;font:inherit;cursor:pointer}
-#help{background:none;border:0;color:inherit;font:inherit;cursor:pointer;padding:0 4px}
+dialog{margin:auto;width:min(440px,calc(100% - 32px));padding:20px 22px;border:1px solid #888;border-radius:8px;background:inherit;color:inherit;font:13px/1.7 system-ui,sans-serif}
+dialog::backdrop{background:#0008}
+dialog h2{font-size:16px;margin:4px 0 6px}
+dialog{max-height:calc(100vh - 32px);overflow:auto}
+dialog ul{padding-left:18px;margin:8px 0 14px}
+dialog kbd,dialog code{font-family:Menlo,monospace;background:#8883;border-radius:3px;padding:0 4px}
+dialog button{float:right;padding:4px 14px;font:inherit;cursor:pointer}
+dialog summary{cursor:pointer;padding:8px 10px;border:1px solid #8886;border-radius:6px;font-weight:600}
+.themes{display:flex;gap:10px;margin:10px 0 4px}
+dialog .themes button{float:none;flex:1;padding:12px 8px;border:2px solid #8886;border-radius:8px;background:none;color:inherit;text-align:center}
+dialog .themes button.on{border-color:#3b82f6}
+.themes small{display:block;opacity:.7}
+#help,#gear{background:none;border:0;color:inherit;font:inherit;cursor:pointer;padding:0 4px}
 </style>
 <header id="head"></header>
 <ol id="log"></ol>
 <form id="f"><input id="nick" maxlength="20" placeholder="이름" autocomplete="off"><span id="pr"></span><input id="msg" maxlength="1000" required autocomplete="off"></form>
-<footer><span id="users"></span><span><span id="typing"></span> <button id="help" title="사용법">?</button></span></footer>
+<footer><span id="users"></span><span><span id="typing"></span> <button id="gear" title="설정"></button> <button id="help" title="사용법">?</button></span></footer>
+<dialog id="settings"><form method="dialog">
+  <h2>⚙️ 설정</h2>
+  <details><summary>🎨 테마 설정</summary>
+    <div class="themes">
+      <button value="dev">💻 개발자<small>VS Code 화면</small></button>
+      <button value="office">📊 오피스<small>엑셀 화면</small></button>
+    </div>
+  </details>
+  <p style="margin-top:14px"><button value="">닫기</button></p>
+</form></dialog>
 <dialog id="guide"><form method="dialog">
   <h2>👋 시작하기</h2>
   <ul>
@@ -67,7 +82,7 @@ body.boss .msg{display:none}
         <li><code>/shake</code> 같은 방 사람들 화면 흔들기 📳</li>
         <li><code>/help</code> 이 안내 열기</li>
       </ul></li>
-    <li><b>테마</b> — 주소 뒤 <code>?theme=dev</code>(VS Code) 또는 <code>?theme=office</code>(엑셀)</li>
+    <li><b>테마 바꾸기</b> — <b>설정</b>(엑셀: 위 메뉴줄) / <b>⚙ Settings</b>(dev: 아래 상태바) → <b>테마 설정</b>. 고른 테마는 기억됨</li>
     <li><b>방 나누기</b> — 주소 끝에 <code>#방이름</code>, 같은 방끼리만 대화가 보임</li>
   </ul>
   <p>⚠️ 링크를 아는 누구나 볼 수 있어요. 업무·개인 정보는 적지 마세요.</p>
@@ -79,9 +94,9 @@ import { SUPABASE_URL, SUPABASE_KEY } from './config.js'
 const sb = createClient(SUPABASE_URL, SUPABASE_KEY)
 const qs = new URLSearchParams(location.search)
 const room = location.hash.slice(1) || 'lobby'
-const store = { get: () => { try { return localStorage.nick } catch {} }, set: v => { try { localStorage.nick = v } catch {} } }
-let me = (qs.get('nick') || store.get() || '').trim().slice(0, 20)
-const theme = qs.get('theme') === 'office' ? 'office' : 'dev'
+const store = { get: k => { try { return localStorage[k] } catch {} }, set: (k, v) => { try { localStorage[k] = v } catch {} } }
+let me = (qs.get('nick') || store.get('nick') || '').trim().slice(0, 20)
+const theme = (qs.get('theme') || store.get('theme')) === 'office' ? 'office' : 'dev'   // 주소 > 저장된 설정 > dev
 document.body.className = theme
 
 let codeAt = 0
@@ -112,7 +127,7 @@ const ITEM = ['3분기 매출 집계', '거래처 미수금', '법인카드 정�
 const T = {
   dev: {
     title: 'chat.service.ts — api-server — Visual Studio Code',
-    head: 'src › services › chat.service.ts', prompt: '@api-server $', help: '? Help',
+    head: 'src › services › chat.service.ts', prompt: '@api-server $', help: '? Help', gear: '⚙ Settings',
     users: u => `⎇ main   👥 ${u}`, typing: n => `⟳ ${n} · TypeScript 분석 중…`,
     decoy: () => { const li = el('li'); li.innerHTML = hl(CODE[codeAt++ % CODE.length]); return li },  // 순서대로 → 진짜 파일처럼
     msg: m => { const li = el('li', null, 'msg'), b = el('b', m.nick); b.style.color = color(m.nick)
@@ -120,7 +135,7 @@ const T = {
   },
   office: {
     title: '2026_3분기_실적정리.xlsx',
-    head: '파일 홈 삽입 페이지레이아웃 수식 데이터 검토 보기', prompt: 'fx', help: '도움말',
+    head: '파일 홈 삽입 페이지레이아웃 수식 데이터 검토 보기', prompt: 'fx', help: '도움말', gear: '설정',
     users: u => `공동 편집: ${u}`, typing: n => `${n}님이 편집 중…`,
     decoy: () => row([`09/${10 + Math.random() * 20 | 0}`, pick(DEPT),
       `${pick(ITEM)}  ₩${(Math.random() * 9e7 | 0).toLocaleString()}`, pick(STATE)]),
@@ -131,7 +146,13 @@ const t = T[theme]
 document.title = t.title; head.textContent = t.head; pr.textContent = t.prompt
 nick.value = me
 help.textContent = t.help; help.onclick = () => guide.showModal()
-if (theme === 'office') head.append(' ', help)   // 엑셀은 리본 메뉴 끝 '도움말' 자리
+gear.textContent = t.gear; gear.onclick = () => { settings.returnValue = ''; settings.showModal() }
+if (theme === 'office') head.append(' ', gear, ' ', help)   // 엑셀은 리본 메뉴 끝자리
+settings.querySelector(`[value=${theme}]`).classList.add('on')
+settings.onclose = () => { const v = settings.returnValue
+  if (!v || v === theme) return
+  store.set('theme', v)
+  const u = new URL(location); u.searchParams.set('theme', v); location.href = u }   // 주소에도 반영 (#방 유지)
 guide.onclose = () => { try { localStorage.guideSeen = 1 } catch {} (me ? msg : nick).focus() }
 let seen; try { seen = localStorage.guideSeen } catch {}
 seen ? (me ? msg : nick).focus() : guide.showModal()
@@ -140,7 +161,7 @@ for (let i = 0; i < 12; i++) log.append(t.decoy())
 
 const add = m => { log.append(t.msg(m)); if (Math.random() < 0.4) log.append(t.decoy())
   log.lastChild.scrollIntoView() }
-document.onkeydown = e => { if (e.key === 'Escape' && !guide.open) document.body.classList.toggle('boss') }  // 보스 키 (false 반환 금지: 모든 키 입력이 막힘)
+document.onkeydown = e => { if (e.key === 'Escape' && !document.querySelector('dialog[open]')) document.body.classList.toggle('boss') }  // 보스 키 (false 반환 금지: 모든 키 입력이 막힘)
 let typingTimer, lastTyping = 0
 
 const { data, error } = await sb.from('messages').select().eq('room', room)
@@ -162,7 +183,7 @@ ch.on('postgres_changes',
 
 // 폼 기본 Enter 제출에 의존하지 않음 (일부 브라우저에서 안 됨). 한글 조합 중 Enter는 무시
 msg.onkeydown = e => { if (e.key === 'Enter' && !e.isComposing) { e.preventDefault(); f.requestSubmit() } }
-nick.onchange = () => { me = nick.value.trim().slice(0, 20); store.set(me); ch.track({ nick: me }) }
+nick.onchange = () => { me = nick.value.trim().slice(0, 20); store.set('nick', me); ch.track({ nick: me }) }
 nick.onkeydown = e => { if (e.key === 'Enter' && !e.isComposing) { e.preventDefault(); nick.onchange(); msg.focus() } }
 msg.oninput = () => {
   if (Date.now() - lastTyping < 1000) return
