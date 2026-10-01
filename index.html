@@ -52,7 +52,7 @@ body.boss .msg{display:none}
     <li><b>이름</b>을 먼저 적으세요 — dev는 맨 아래 <code>이름@api-server</code>, 엑셀은 맨 위 <code>fx</code> 왼쪽 칸</li>
     <li>메시지 입력 후 <kbd>Enter</kbd> 로 전송</li>
     <li><kbd>Esc</kbd> 보스 키 — 대화를 숨기고 일하는 화면만 남김 (한 번 더 누르면 복귀)</li>
-    <li>이 안내 다시 보기: 하단 <b>도움말 / ? Help</b> 버튼 또는 <code>/help</code></li>
+    <li>이 안내 다시 보기: <b>도움말</b>(엑셀: 위 메뉴줄 끝) / <b>? Help</b>(dev: 아래 상태바) 버튼 또는 <code>/help</code></li>
     <li>명령어: <code>/roll</code> 주사위 · <code>/shrug</code> ¯\_(ツ)_/¯ · <code>/shake</code> 화면 흔들기</li>
     <li>테마: 주소 뒤 <code>?theme=dev</code> 또는 <code>?theme=office</code></li>
     <li>방 나누기: 주소 끝에 <code>#방이름</code> (같은 방끼리만 보임)</li>
@@ -118,6 +118,7 @@ const t = T[theme]
 document.title = t.title; head.textContent = t.head; pr.textContent = t.prompt
 nick.value = me
 help.textContent = t.help; help.onclick = () => guide.showModal()
+if (theme === 'office') head.append(' ', help)   // 엑셀은 리본 메뉴 끝 '도움말' 자리
 guide.onclose = () => { try { localStorage.guideSeen = 1 } catch {} (me ? msg : nick).focus() }
 let seen; try { seen = localStorage.guideSeen } catch {}
 seen ? (me ? msg : nick).focus() : guide.showModal()
