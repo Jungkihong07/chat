@@ -36,7 +36,8 @@ body.boss .msg{display:none}
 
 #guide{margin:auto;max-width:min(440px,calc(100% - 32px));padding:20px 22px;border:1px solid #888;border-radius:8px;background:inherit;color:inherit;font:13px/1.7 system-ui,sans-serif}
 #guide::backdrop{background:#0008}
-#guide h2{font-size:16px;margin-bottom:8px}
+#guide h2{font-size:16px;margin:4px 0 6px}
+#guide{max-height:calc(100vh - 32px);overflow:auto}
 #guide ul{padding-left:18px;margin:8px 0 14px}
 #guide kbd,#guide code{font-family:Menlo,monospace;background:#8883;border-radius:3px;padding:0 4px}
 #guide button{float:right;padding:4px 14px;font:inherit;cursor:pointer}
@@ -47,15 +48,27 @@ body.boss .msg{display:none}
 <form id="f"><input id="nick" maxlength="20" placeholder="이름" autocomplete="off"><span id="pr"></span><input id="msg" maxlength="1000" required autocomplete="off"></form>
 <footer><span id="users"></span><span><span id="typing"></span> <button id="help" title="사용법">?</button></span></footer>
 <dialog id="guide"><form method="dialog">
-  <h2>👋 사용법</h2>
+  <h2>👋 시작하기</h2>
   <ul>
-    <li><b>이름</b>을 먼저 적으세요 — dev는 맨 아래 <code>이름@api-server</code>, 엑셀은 맨 위 <code>fx</code> 왼쪽 칸</li>
+    <li><b>이름</b>을 먼저 적으세요 — dev는 맨 아래 <code>이름@api-server</code>, 엑셀은 맨 위 <code>fx</code> 왼쪽 칸 (한 번 적으면 기억)</li>
     <li>메시지 입력 후 <kbd>Enter</kbd> 로 전송</li>
-    <li><kbd>Esc</kbd> 보스 키 — 대화를 숨기고 일하는 화면만 남김 (한 번 더 누르면 복귀)</li>
-    <li>이 안내 다시 보기: <b>도움말</b>(엑셀: 위 메뉴줄 끝) / <b>? Help</b>(dev: 아래 상태바) 버튼 또는 <code>/help</code></li>
-    <li>명령어: <code>/roll</code> 주사위 · <code>/shrug</code> ¯\_(ツ)_/¯ · <code>/shake</code> 화면 흔들기</li>
-    <li>테마: 주소 뒤 <code>?theme=dev</code> 또는 <code>?theme=office</code></li>
-    <li>방 나누기: 주소 끝에 <code>#방이름</code> (같은 방끼리만 보임)</li>
+    <li>이 안내 다시 보기: <b>도움말</b>(엑셀: 위 메뉴줄 끝) / <b>? Help</b>(dev: 아래 상태바) 또는 <code>/help</code></li>
+  </ul>
+  <h2>🧰 기능</h2>
+  <ul>
+    <li><b>위장 화면</b> — 대화가 가짜 코드·가짜 실적표 사이에 섞여 보임</li>
+    <li><b>보스 키</b> <kbd>Esc</kbd> — 대화만 싹 숨김, 한 번 더 누르면 복귀</li>
+    <li><b>접속자 표시</b> — 하단 <code>👥</code> / <code>공동 편집:</code> 에 지금 들어온 사람</li>
+    <li><b>입력 중 표시</b> — 누가 치고 있으면 하단에 <code>분석 중…</code> / <code>편집 중…</code></li>
+    <li><b>명령어</b>
+      <ul>
+        <li><code>/roll</code> 주사위 굴리기 🎲</li>
+        <li><code>/shrug</code> ¯\_(ツ)_/¯ 보내기</li>
+        <li><code>/shake</code> 같은 방 사람들 화면 흔들기 📳</li>
+        <li><code>/help</code> 이 안내 열기</li>
+      </ul></li>
+    <li><b>테마</b> — 주소 뒤 <code>?theme=dev</code>(VS Code) 또는 <code>?theme=office</code>(엑셀)</li>
+    <li><b>방 나누기</b> — 주소 끝에 <code>#방이름</code>, 같은 방끼리만 대화가 보임</li>
   </ul>
   <p>⚠️ 링크를 아는 누구나 볼 수 있어요. 업무·개인 정보는 적지 마세요.</p>
   <button>시작하기</button>
