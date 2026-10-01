@@ -11,6 +11,8 @@ body{height:100vh;display:flex;flex-direction:column;font:13px/1.7 system-ui,san
 footer{display:flex;justify-content:space-between;gap:12px;padding:1px 10px;font-size:12px}
 header{padding:5px 12px;font-size:12px}
 body.boss .msg{display:none}
+.tag{opacity:.55;font-size:.85em}
+i{font-style:normal}
 
 .dev{background:#1e1e1e;color:#d4d4d4;font-family:Menlo,Consolas,monospace}
 .dev header{background:#252526;color:#bbb;border-bottom:1px solid #333}
@@ -28,9 +30,10 @@ body.boss .msg{display:none}
 .office #f{order:-1;border-bottom:1px solid #d4d4d4}
 .office #nick{border-right:1px solid #d4d4d4;padding-right:8px}
 .office #pr{font-style:italic;color:#777;border-right:1px solid #d4d4d4;padding-right:8px}
-.office #log li{display:grid;grid-template-columns:40px 70px 90px 1fr 70px;border-bottom:1px solid #e3e3e3}
+.office #log li{display:grid;grid-template-columns:40px 56px 130px 1fr 64px;border-bottom:1px solid #e3e3e3}
 .office #log li::before{content:counter(n);background:#f3f3f3;color:#666;text-align:center;border-right:1px solid #ccc}
 .office #log li>*{padding:0 6px;border-right:1px solid #e3e3e3;overflow:hidden}
+.office .msg>:nth-child(2){white-space:nowrap;text-overflow:ellipsis}
 .office #log li.hdr{counter-increment:none;position:sticky;top:0;background:#f3f3f3;color:#555;text-align:center}
 .office #log li.hdr::before{content:''}
 .office footer{background:#f3f3f3;border-top:1px solid #ccc;color:#444}
@@ -78,12 +81,15 @@ dialog button{float:right;padding:4px 14px;font:inherit;cursor:pointer}
     <li><b>위장 화면</b> — 대화가 가짜 코드·가짜 실적표 사이에 섞여 보임</li>
     <li><b>보스 키</b> <kbd>Esc</kbd> — 대화만 싹 숨김, 한 번 더 누르면 복귀</li>
     <li><b>접속자 표시</b> — 하단 <code>👥</code> / <code>공동 편집:</code> 에 지금 들어온 사람</li>
+    <li><b>사람 구분</b> — 기기마다 고유 색 ● 과 짧은 표시(예: <code>·7f3</code>). 같은 이름이어도 색·표시가 다르면 다른 사람</li>
+    <li><b>내 글 삭제</b> — 내 메시지를 더블클릭, 또는 <code>/undo</code> 로 마지막 글 삭제</li>
     <li><b>입력 중 표시</b> — 누가 치고 있으면 하단에 <code>분석 중…</code> / <code>편집 중…</code></li>
     <li><b>명령어</b>
       <ul>
         <li><code>/roll</code> 주사위 굴리기 🎲</li>
         <li><code>/shrug</code> ¯\_(ツ)_/¯ 보내기</li>
         <li><code>/shake</code> 같은 방 사람들 화면 흔들기 📳</li>
+        <li><code>/undo</code> 내 마지막 글 삭제</li>
         <li><code>/help</code> 이 안내 열기</li>
       </ul></li>
     <li><b>테마 바꾸기</b> — 엑셀: 위 메뉴줄 <b>설정</b> 탭 → 리본에서 선택 / dev: 아래 상태바 <b>⚙</b> → 위에 뜨는 목록에서 선택. 고른 테마는 기억됨</li>
@@ -96,6 +102,14 @@ dialog button{float:right;padding:4px 14px;font:inherit;cursor:pointer}
 import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm'
 import { SUPABASE_URL, SUPABASE_KEY } from './config.js'
 const sb = createClient(SUPABASE_URL, SUPABASE_KEY)
+// 익명 로그인: 가입 없이 기기(브라우저)마다 서버가 발급한 고유 ID → 색·표시로 사람 구분, 내 글 삭제
+let { data: { session } } = await sb.auth.getSession()
+if (!session) { const r = await sb.auth.signInAnonymously(); session = r.data.session
+  if (r.error) console.error('익명 로그인 실패:', r.error.message) }
+const uid = session?.user.id
+const store0 = k => { try { return localStorage[k] } catch {} }
+let did = store0('did'); if (!did) { did = crypto.randomUUID(); try { localStorage.did = did } catch {} }
+const myId = uid || did   // 익명 로그인이 꺼져 있으면 브라우저 고유 ID로 대신
 const qs = new URLSearchParams(location.search)
 const room = location.hash.slice(1) || 'lobby'
 const store = { get: k => { try { return localStorage[k] } catch {} }, set: (k, v) => { try { localStorage[k] = v } catch {} } }
@@ -107,7 +121,11 @@ let codeAt = 0
 const pick = a => a[Math.random() * a.length | 0]
 const el = (tag, text, cls) => { const e = document.createElement(tag)
   if (text != null) e.textContent = text; if (cls) e.className = cls; return e }
-const color = s => `hsl(${[...s].reduce((h, c) => h * 31 + c.charCodeAt(0) | 0, 0) % 360} 70% 65%)`
+const color = s => `hsl(${[...s].reduce((h, c) => h * 31 + c.charCodeAt(0) | 0, 0) % 360} 75% ${theme === 'dev' ? 65 : 40}%)`
+const hue = id => id ? color(id) : '#888'
+const who = m => m.user_id || m.nick                 // 색 기준: ID, 없으면(옛 메시지) 이름
+const tag = id => id ? '·' + id.slice(0, 3) : ''     // 같은 이름이어도 기기가 다르면 표시가 다름
+const dot = id => { const d = el('i', '●'); d.style.color = hue(id); return d }
 const hm = d => new Date(d).toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit', hour12: false })
 
 // 위장용 가짜 줄 (고정 문자열만 innerHTML로 씀 — 사용자 입력은 항상 textContent)
@@ -124,7 +142,7 @@ const CODE = [
 const hl = s => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(
   /(\/\/.*$)|('[^']*')|\b(import|from|export|class|const|async|await|return|if|throw|new|private|readonly)\b/g,
   (m, c, str, kw) => c ? `<span class=cm>${c}</span>` : str ? `<span class=str>${str}</span>` : `<span class=kw>${kw}</span>`)
-const row = (cells, cls) => { const li = el('li', null, cls); li.append(...cells.map(c => el('span', c))); return li }
+const row = (cells, cls) => { const li = el('li', null, cls); li.append(...cells.map(c => c instanceof Node ? c : el('span', c))); return li }
 const DEPT = ['영업1팀', '마케팅', '재무', '인사', '개발'], STATE = ['완료', '진행', '보류', '완료']
 const ITEM = ['3분기 매출 집계', '거래처 미수금', '법인카드 정산', '신규 채용 계획', '클라우드 비용', '광고 집행비']
 
@@ -132,18 +150,22 @@ const T = {
   dev: {
     title: 'chat.service.ts — api-server — Visual Studio Code',
     head: 'src › services › chat.service.ts', prompt: '@api-server $', help: '? Help', gear: '⚙ Settings',
-    users: u => `⎇ main   👥 ${u}`, typing: n => `⟳ ${n} · TypeScript 분석 중…`,
+    users: '⎇ main   👥 ', typing: n => `⟳ ${n} · TypeScript 분석 중…`,
     decoy: () => { const li = el('li'); li.innerHTML = hl(CODE[codeAt++ % CODE.length]); return li },  // 순서대로 → 진짜 파일처럼
-    msg: m => { const li = el('li', null, 'msg'), b = el('b', m.nick); b.style.color = color(m.nick)
-      li.append(el('span', '// ', 'cm'), b, el('span', ': ' + m.body, 'cm')); return li },
+    msg: m => { const li = el('li', null, 'msg'), c = hue(who(m)), b = el('b', m.nick), body = el('span', ': ' + m.body)
+      b.style.color = body.style.color = c   // 이름·본문 모두 사람별 색
+      li.append(el('span', '// ', 'cm'), b, el('span', tag(m.user_id), 'tag'), body); return li },
   },
   office: {
     title: '2026_3분기_실적정리.xlsx',
     head: '파일 홈 삽입 페이지레이아웃 수식 데이터 검토 보기', prompt: 'fx', help: '도움말', gear: '설정',
-    users: u => `공동 편집: ${u}`, typing: n => `${n}님이 편집 중…`,
+    users: '공동 편집: ', typing: n => `${n}님이 편집 중…`,
     decoy: () => row([`09/${10 + Math.random() * 20 | 0}`, pick(DEPT),
       `${pick(ITEM)}  ₩${(Math.random() * 9e7 | 0).toLocaleString()}`, pick(STATE)]),
-    msg: m => row([hm(m.created_at), m.nick, m.body, '검토중'], 'msg'),
+    msg: m => { const c = hue(who(m)), name = el('span'), body = el('span', m.body)
+      name.append(dot(who(m)), ' ' + m.nick, el('small', tag(m.user_id), 'tag'))
+      name.style.color = body.style.color = c   // 이름·본문 모두 사람별 색
+      return row([hm(m.created_at), name, body, '검토중'], 'msg') },
   },
 }
 const t = T[theme]
@@ -187,7 +209,11 @@ seen ? (me ? msg : nick).focus() : guide.showModal()
 if (theme === 'office') log.append(row(['날짜', '담당', '내용', '상태'], 'hdr'))
 for (let i = 0; i < 12; i++) log.append(t.decoy())
 
-const add = m => { log.append(t.msg(m)); if (Math.random() < 0.4) log.append(t.decoy())
+const del = async id => { const { error } = await sb.from('messages').delete().eq('id', id)
+  if (error) console.error('삭제 실패:', error.message) }
+const add = m => { const li = t.msg(m); li.dataset.id = m.id
+  if (m.user_id === myId) { li.classList.add('mine'); li.title = '더블클릭하면 삭제'; li.ondblclick = () => del(m.id) }
+  log.append(li); if (Math.random() < 0.4) log.append(t.decoy())
   log.lastChild.scrollIntoView() }
 document.onkeydown = e => { if (e.key === 'Escape' && !document.querySelector('dialog[open]')) document.body.classList.toggle('boss') }  // 보스 키 (false 반환 금지: 모든 키 입력이 막힘)
 let typingTimer, lastTyping = 0
@@ -201,17 +227,21 @@ const ch = sb.channel(room)
 ch.on('postgres_changes',
     { event: 'INSERT', schema: 'public', table: 'messages', filter: `room=eq.${room}` },
     p => add(p.new))
-  .on('presence', { event: 'sync' }, () => users.textContent = t.users([...new Set(Object.values(ch.presenceState()).flat().map(p => p.nick).filter(Boolean))].join(', ')))
+  .on('postgres_changes', { event: 'DELETE', schema: 'public', table: 'messages' },   // DELETE는 필터 불가 → id로 찾아 제거
+    p => log.querySelector(`[data-id="${p.old.id}"]`)?.remove())
+  .on('presence', { event: 'sync' }, () => {
+    const ppl = new Map(Object.values(ch.presenceState()).flat().filter(p => p.nick).map(p => [p.uid ?? p.nick, p]))
+    users.replaceChildren(t.users, ...[...ppl.values()].flatMap((p, i) => [i ? ', ' : '', dot(p.uid), ' ' + p.nick])) })
   .on('broadcast', { event: 'typing' }, ({ payload }) => {
     typing.textContent = t.typing(payload.nick)
     clearTimeout(typingTimer); typingTimer = setTimeout(() => typing.textContent = '', 2000) })
   .on('broadcast', { event: 'shake' }, () => document.body.animate(
     [{ transform: 'translateX(-8px)' }, { transform: 'translateX(8px)' }], { duration: 80, iterations: 6 }))
-  .subscribe((s, err) => s === 'SUBSCRIBED' ? ch.track({ nick: me }) : console.warn('realtime:', s, err?.message ?? ''))
+  .subscribe((s, err) => s === 'SUBSCRIBED' ? ch.track({ nick: me, uid: myId }) : console.warn('realtime:', s, err?.message ?? ''))
 
 // 폼 기본 Enter 제출에 의존하지 않음 (일부 브라우저에서 안 됨). 한글 조합 중 Enter는 무시
 msg.onkeydown = e => { if (e.key === 'Enter' && !e.isComposing) { e.preventDefault(); f.requestSubmit() } }
-nick.onchange = () => { me = nick.value.trim().slice(0, 20); store.set('nick', me); ch.track({ nick: me }) }
+nick.onchange = () => { me = nick.value.trim().slice(0, 20); store.set('nick', me); ch.track({ nick: me, uid: myId }) }
 nick.onkeydown = e => { if (e.key === 'Enter' && !e.isComposing) { e.preventDefault(); nick.onchange(); msg.focus() } }
 msg.oninput = () => {
   if (Date.now() - lastTyping < 1000) return
@@ -225,9 +255,11 @@ const cmds = {
 }
 f.onsubmit = async e => { e.preventDefault()
   if (msg.value.trim() === '/help') { msg.value = ''; return guide.showModal() }
+  if (msg.value.trim() === '/undo') { msg.value = ''; const last = [...log.querySelectorAll('.mine')].pop()
+    return last && del(last.dataset.id) }
   if (!me) return nick.focus()             // 이름 없으면 이름 칸으로
   const body = cmds[msg.value.split(' ')[0]]?.() ?? msg.value
-  const { error } = await sb.from('messages').insert({ room, nick: me, body })
+  const { error } = await sb.from('messages').insert({ room, nick: me, body, user_id: myId })
   if (error) return console.error('전송 실패:', error.message)
   msg.value = '' }
 </script>
