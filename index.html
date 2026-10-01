@@ -1,0 +1,143 @@
+<!doctype html><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title></title>
+<style>
+*{box-sizing:border-box;margin:0}
+body{height:100vh;display:flex;flex-direction:column;font:13px/1.7 system-ui,sans-serif}
+#log{flex:1;overflow:auto;list-style:none;padding:0;counter-reset:n}
+#log li{counter-increment:n;white-space:pre-wrap}
+#f{display:flex;gap:8px;align-items:center;padding:4px 10px}
+#msg,#nick{flex:1;border:0;outline:0;font:inherit;background:transparent;color:inherit}
+#nick{flex:0 0 9ch;min-width:0}
+footer{display:flex;justify-content:space-between;gap:12px;padding:1px 10px;font-size:12px}
+header{padding:5px 12px;font-size:12px}
+body.boss .msg{display:none}
+
+.dev{background:#1e1e1e;color:#d4d4d4;font-family:Menlo,Consolas,monospace}
+.dev header{background:#252526;color:#bbb;border-bottom:1px solid #333}
+.dev #log li:not(.msg){white-space:pre}
+.dev #log li::before{content:counter(n);display:inline-block;width:3em;margin-right:1.5em;text-align:right;color:#6e7681}
+.dev .cm{color:#6a9955}.dev .kw{color:#569cd6}.dev .str{color:#ce9178}
+.dev #f{background:#181818;border-top:1px solid #333}
+.dev #pr,.dev #nick{color:#4ec9b0}
+.dev #nick{text-align:right;flex-basis:12ch}
+.dev #f{gap:0}.dev #pr{margin-right:8px}
+.dev footer{background:#007acc;color:#fff}
+
+.office{background:#fff;color:#222}
+.office header{background:#217346;color:#fff;word-spacing:1.2em}
+.office #f{order:-1;border-bottom:1px solid #d4d4d4}
+.office #nick{border-right:1px solid #d4d4d4;padding-right:8px}
+.office #pr{font-style:italic;color:#777;border-right:1px solid #d4d4d4;padding-right:8px}
+.office #log li{display:grid;grid-template-columns:40px 70px 90px 1fr 70px;border-bottom:1px solid #e3e3e3}
+.office #log li::before{content:counter(n);background:#f3f3f3;color:#666;text-align:center;border-right:1px solid #ccc}
+.office #log li>*{padding:0 6px;border-right:1px solid #e3e3e3;overflow:hidden}
+.office #log li.hdr{counter-increment:none;position:sticky;top:0;background:#f3f3f3;color:#555;text-align:center}
+.office #log li.hdr::before{content:''}
+.office footer{background:#f3f3f3;border-top:1px solid #ccc;color:#444}
+</style>
+<header id="head"></header>
+<ol id="log"></ol>
+<form id="f"><input id="nick" maxlength="20" placeholder="이름" autocomplete="off"><span id="pr"></span><input id="msg" maxlength="1000" required autocomplete="off"></form>
+<footer><span id="users"></span><span id="typing"></span></footer>
+<script type="module">
+import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm'
+import { SUPABASE_URL, SUPABASE_KEY } from './config.js'
+const sb = createClient(SUPABASE_URL, SUPABASE_KEY)
+const qs = new URLSearchParams(location.search)
+const room = location.hash.slice(1) || 'lobby'
+const store = { get: () => { try { return localStorage.nick } catch {} }, set: v => { try { localStorage.nick = v } catch {} } }
+let me = (qs.get('nick') || store.get() || '').trim().slice(0, 20)
+const theme = qs.get('theme') === 'office' ? 'office' : 'dev'
+document.body.className = theme
+
+let codeAt = 0
+const pick = a => a[Math.random() * a.length | 0]
+const el = (tag, text, cls) => { const e = document.createElement(tag)
+  if (text != null) e.textContent = text; if (cls) e.className = cls; return e }
+const color = s => `hsl(${[...s].reduce((h, c) => h * 31 + c.charCodeAt(0) | 0, 0) % 360} 70% 65%)`
+const hm = d => new Date(d).toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit', hour12: false })
+
+// 위장용 가짜 줄 (고정 문자열만 innerHTML로 씀 — 사용자 입력은 항상 textContent)
+const CODE = [
+  "import { Injectable } from '@nestjs/common'", "import { Repository } from 'typeorm'",
+  'export class ChatService {', '  constructor(private readonly repo: Repository) {}',
+  '  async findRecent(room: string, limit = 50) {', '    const rows = await this.repo.find({ where: { room }, take: limit })',
+  '    return rows.reverse()', '  }', '', "    if (!user) throw new UnauthorizedException('session expired')",
+  '    const cacheKey = `room:${id}:members`', '    // FIXME: N+1 query on members relation',
+  '    await this.redis.expire(cacheKey, 300)', '    return { ok: true, data }',
+  "    logger.debug('flush queue', { size: queue.length })", '    const res = await withBackoff(() => client.send(payload), 3)',
+  '    if (res.status >= 500) return this.fallback(req)', "    // TODO: move to config ('CHAT_MAX_LEN')",
+]
+const hl = s => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(
+  /(\/\/.*$)|('[^']*')|\b(import|from|export|class|const|async|await|return|if|throw|new|private|readonly)\b/g,
+  (m, c, str, kw) => c ? `<span class=cm>${c}</span>` : str ? `<span class=str>${str}</span>` : `<span class=kw>${kw}</span>`)
+const row = (cells, cls) => { const li = el('li', null, cls); li.append(...cells.map(c => el('span', c))); return li }
+const DEPT = ['영업1팀', '마케팅', '재무', '인사', '개발'], STATE = ['완료', '진행', '보류', '완료']
+const ITEM = ['3분기 매출 집계', '거래처 미수금', '법인카드 정산', '신규 채용 계획', '클라우드 비용', '광고 집행비']
+
+const T = {
+  dev: {
+    title: 'chat.service.ts — api-server — Visual Studio Code',
+    head: 'src › services › chat.service.ts', prompt: '@api-server $',
+    users: u => `⎇ main   👥 ${u}`, typing: n => `⟳ ${n} · TypeScript 분석 중…`,
+    decoy: () => { const li = el('li'); li.innerHTML = hl(CODE[codeAt++ % CODE.length]); return li },  // 순서대로 → 진짜 파일처럼
+    msg: m => { const li = el('li', null, 'msg'), b = el('b', m.nick); b.style.color = color(m.nick)
+      li.append(el('span', '// ', 'cm'), b, el('span', ': ' + m.body, 'cm')); return li },
+  },
+  office: {
+    title: '2026_3분기_실적정리.xlsx',
+    head: '파일 홈 삽입 페이지레이아웃 수식 데이터 검토 보기', prompt: 'fx',
+    users: u => `공동 편집: ${u}`, typing: n => `${n}님이 편집 중…`,
+    decoy: () => row([`09/${10 + Math.random() * 20 | 0}`, pick(DEPT),
+      `${pick(ITEM)}  ₩${(Math.random() * 9e7 | 0).toLocaleString()}`, pick(STATE)]),
+    msg: m => row([hm(m.created_at), m.nick, m.body, '검토중'], 'msg'),
+  },
+}
+const t = T[theme]
+document.title = t.title; head.textContent = t.head; pr.textContent = t.prompt
+nick.value = me; (me ? msg : nick).focus()
+if (theme === 'office') log.append(row(['날짜', '담당', '내용', '상태'], 'hdr'))
+for (let i = 0; i < 12; i++) log.append(t.decoy())
+
+const add = m => { log.append(t.msg(m)); if (Math.random() < 0.4) log.append(t.decoy())
+  log.lastChild.scrollIntoView() }
+document.onkeydown = e => e.key === 'Escape' && document.body.classList.toggle('boss')  // 보스 키
+let typingTimer, lastTyping = 0
+
+const { data, error } = await sb.from('messages').select().eq('room', room)
+  .order('id', { ascending: false }).limit(50)
+if (error) console.error('불러오기 실패:', error.message)
+;(data ?? []).reverse().forEach(add)
+
+const ch = sb.channel(room)
+ch.on('postgres_changes',
+    { event: 'INSERT', schema: 'public', table: 'messages', filter: `room=eq.${room}` },
+    p => add(p.new))
+  .on('presence', { event: 'sync' }, () => users.textContent = t.users([...new Set(Object.values(ch.presenceState()).flat().map(p => p.nick).filter(Boolean))].join(', ')))
+  .on('broadcast', { event: 'typing' }, ({ payload }) => {
+    typing.textContent = t.typing(payload.nick)
+    clearTimeout(typingTimer); typingTimer = setTimeout(() => typing.textContent = '', 2000) })
+  .on('broadcast', { event: 'shake' }, () => document.body.animate(
+    [{ transform: 'translateX(-8px)' }, { transform: 'translateX(8px)' }], { duration: 80, iterations: 6 }))
+  .subscribe(s => s === 'SUBSCRIBED' && ch.track({ nick: me }))
+
+// 폼 기본 Enter 제출에 의존하지 않음 (일부 브라우저에서 안 됨). 한글 조합 중 Enter는 무시
+msg.onkeydown = e => { if (e.key === 'Enter' && !e.isComposing) { e.preventDefault(); f.requestSubmit() } }
+nick.onchange = () => { me = nick.value.trim().slice(0, 20); store.set(me); ch.track({ nick: me }) }
+nick.onkeydown = e => { if (e.key === 'Enter' && !e.isComposing) { e.preventDefault(); nick.onchange(); msg.focus() } }
+msg.oninput = () => {
+  if (Date.now() - lastTyping < 1000) return
+  lastTyping = Date.now()
+  ch.send({ type: 'broadcast', event: 'typing', payload: { nick: me } }) }
+
+const cmds = {
+  '/roll':  () => `🎲 ${1 + Math.random() * 6 | 0}`,
+  '/shrug': () => '¯\\_(ツ)_/¯',
+  '/shake': () => (ch.send({ type: 'broadcast', event: 'shake' }), '📳 방을 흔들었다!'),
+}
+f.onsubmit = async e => { e.preventDefault()
+  if (!me) return nick.focus()             // 이름 없으면 이름 칸으로
+  const body = cmds[msg.value.split(' ')[0]]?.() ?? msg.value
+  const { error } = await sb.from('messages').insert({ room, nick: me, body })
+  if (error) return console.error('전송 실패:', error.message)
+  msg.value = '' }
+</script>
