@@ -33,11 +33,33 @@ body.boss .msg{display:none}
 .office #log li.hdr{counter-increment:none;position:sticky;top:0;background:#f3f3f3;color:#555;text-align:center}
 .office #log li.hdr::before{content:''}
 .office footer{background:#f3f3f3;border-top:1px solid #ccc;color:#444}
+
+#guide{margin:auto;max-width:min(440px,calc(100% - 32px));padding:20px 22px;border:1px solid #888;border-radius:8px;background:inherit;color:inherit;font:13px/1.7 system-ui,sans-serif}
+#guide::backdrop{background:#0008}
+#guide h2{font-size:16px;margin-bottom:8px}
+#guide ul{padding-left:18px;margin:8px 0 14px}
+#guide kbd,#guide code{font-family:Menlo,monospace;background:#8883;border-radius:3px;padding:0 4px}
+#guide button{float:right;padding:4px 14px;font:inherit;cursor:pointer}
+#help{background:none;border:0;color:inherit;font:inherit;cursor:pointer;padding:0 4px}
 </style>
 <header id="head"></header>
 <ol id="log"></ol>
 <form id="f"><input id="nick" maxlength="20" placeholder="이름" autocomplete="off"><span id="pr"></span><input id="msg" maxlength="1000" required autocomplete="off"></form>
-<footer><span id="users"></span><span id="typing"></span></footer>
+<footer><span id="users"></span><span><span id="typing"></span> <button id="help" title="사용법">?</button></span></footer>
+<dialog id="guide"><form method="dialog">
+  <h2>👋 사용법</h2>
+  <ul>
+    <li><b>이름</b>을 먼저 적으세요 — dev는 맨 아래 <code>이름@api-server</code>, 엑셀은 맨 위 <code>fx</code> 왼쪽 칸</li>
+    <li>메시지 입력 후 <kbd>Enter</kbd> 로 전송</li>
+    <li><kbd>Esc</kbd> 보스 키 — 대화를 숨기고 일하는 화면만 남김 (한 번 더 누르면 복귀)</li>
+    <li>이 안내 다시 보기: 하단 <b>도움말 / ? Help</b> 버튼 또는 <code>/help</code></li>
+    <li>명령어: <code>/roll</code> 주사위 · <code>/shrug</code> ¯\_(ツ)_/¯ · <code>/shake</code> 화면 흔들기</li>
+    <li>테마: 주소 뒤 <code>?theme=dev</code> 또는 <code>?theme=office</code></li>
+    <li>방 나누기: 주소 끝에 <code>#방이름</code> (같은 방끼리만 보임)</li>
+  </ul>
+  <p>⚠️ 링크를 아는 누구나 볼 수 있어요. 업무·개인 정보는 적지 마세요.</p>
+  <button>시작하기</button>
+</form></dialog>
 <script type="module">
 import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm'
 import { SUPABASE_URL, SUPABASE_KEY } from './config.js'
@@ -77,7 +99,7 @@ const ITEM = ['3분기 매출 집계', '거래처 미수금', '법인카드 정�
 const T = {
   dev: {
     title: 'chat.service.ts — api-server — Visual Studio Code',
-    head: 'src › services › chat.service.ts', prompt: '@api-server $',
+    head: 'src › services › chat.service.ts', prompt: '@api-server $', help: '? Help',
     users: u => `⎇ main   👥 ${u}`, typing: n => `⟳ ${n} · TypeScript 분석 중…`,
     decoy: () => { const li = el('li'); li.innerHTML = hl(CODE[codeAt++ % CODE.length]); return li },  // 순서대로 → 진짜 파일처럼
     msg: m => { const li = el('li', null, 'msg'), b = el('b', m.nick); b.style.color = color(m.nick)
@@ -85,7 +107,7 @@ const T = {
   },
   office: {
     title: '2026_3분기_실적정리.xlsx',
-    head: '파일 홈 삽입 페이지레이아웃 수식 데이터 검토 보기', prompt: 'fx',
+    head: '파일 홈 삽입 페이지레이아웃 수식 데이터 검토 보기', prompt: 'fx', help: '도움말',
     users: u => `공동 편집: ${u}`, typing: n => `${n}님이 편집 중…`,
     decoy: () => row([`09/${10 + Math.random() * 20 | 0}`, pick(DEPT),
       `${pick(ITEM)}  ₩${(Math.random() * 9e7 | 0).toLocaleString()}`, pick(STATE)]),
@@ -94,13 +116,17 @@ const T = {
 }
 const t = T[theme]
 document.title = t.title; head.textContent = t.head; pr.textContent = t.prompt
-nick.value = me; (me ? msg : nick).focus()
+nick.value = me
+help.textContent = t.help; help.onclick = () => guide.showModal()
+guide.onclose = () => { try { localStorage.guideSeen = 1 } catch {} (me ? msg : nick).focus() }
+let seen; try { seen = localStorage.guideSeen } catch {}
+seen ? (me ? msg : nick).focus() : guide.showModal()
 if (theme === 'office') log.append(row(['날짜', '담당', '내용', '상태'], 'hdr'))
 for (let i = 0; i < 12; i++) log.append(t.decoy())
 
 const add = m => { log.append(t.msg(m)); if (Math.random() < 0.4) log.append(t.decoy())
   log.lastChild.scrollIntoView() }
-document.onkeydown = e => { if (e.key === 'Escape') document.body.classList.toggle('boss') }  // 보스 키 (false 반환 금지: 모든 키 입력이 막힘)
+document.onkeydown = e => { if (e.key === 'Escape' && !guide.open) document.body.classList.toggle('boss') }  // 보스 키 (false 반환 금지: 모든 키 입력이 막힘)
 let typingTimer, lastTyping = 0
 
 const { data, error } = await sb.from('messages').select().eq('room', room)
@@ -135,6 +161,7 @@ const cmds = {
   '/shake': () => (ch.send({ type: 'broadcast', event: 'shake' }), '📳 방을 흔들었다!'),
 }
 f.onsubmit = async e => { e.preventDefault()
+  if (msg.value.trim() === '/help') { msg.value = ''; return guide.showModal() }
   if (!me) return nick.focus()             // 이름 없으면 이름 칸으로
   const body = cmds[msg.value.split(' ')[0]]?.() ?? msg.value
   const { error } = await sb.from('messages').insert({ room, nick: me, body })
