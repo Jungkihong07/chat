@@ -1,6 +1,7 @@
 <!doctype html><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title></title>
 <style>
 *{box-sizing:border-box;margin:0}
+[hidden]{display:none!important}
 body{height:100vh;display:flex;flex-direction:column;font:13px/1.7 system-ui,sans-serif}
 #log{flex:1;overflow:auto;list-style:none;padding:0;counter-reset:n}
 #log li{counter-increment:n;white-space:pre-wrap}
@@ -41,27 +42,30 @@ dialog{max-height:calc(100vh - 32px);overflow:auto}
 dialog ul{padding-left:18px;margin:8px 0 14px}
 dialog kbd,dialog code{font-family:Menlo,monospace;background:#8883;border-radius:3px;padding:0 4px}
 dialog button{float:right;padding:4px 14px;font:inherit;cursor:pointer}
-dialog summary{cursor:pointer;padding:8px 10px;border:1px solid #8886;border-radius:6px;font-weight:600}
-.themes{display:flex;gap:10px;margin:10px 0 4px}
-dialog .themes button{float:none;flex:1;padding:12px 8px;border:2px solid #8886;border-radius:8px;background:none;color:inherit;text-align:center}
-dialog .themes button.on{border-color:#3b82f6}
-.themes small{display:block;opacity:.7}
+#gear.on{background:#fff;color:#217346;border-radius:3px 3px 0 0}
+#ribbon{display:flex;gap:4px;padding:6px 10px 2px;background:#f3f3f3;border-bottom:1px solid #d4d4d4;font-size:12px}
+#ribbon fieldset{border:0;border-right:1px solid #d4d4d4;padding:0 10px 0 0;display:flex;flex-direction:column;align-items:center}
+#ribbon legend{float:left;display:none}
+#ribbon .grp{display:flex;gap:2px}
+#ribbon button{display:flex;flex-direction:column;align-items:center;gap:2px;min-width:64px;padding:4px 6px;border:1px solid transparent;border-radius:3px;background:none;font:inherit;color:#333;cursor:pointer}
+#ribbon button:hover{background:#e1e1e1}
+#ribbon button.on{background:#d0e7d8;border-color:#9bc5a8}
+#ribbon button b{font-size:22px;font-weight:400;line-height:1}
+#ribbon .cap{color:#777;font-size:11px;margin-top:2px}
+#qp{position:fixed;top:8px;left:50%;transform:translateX(-50%);width:min(560px,calc(100% - 32px));background:#252526;color:#ccc;border:1px solid #454545;border-radius:6px;box-shadow:0 8px 24px #000a;padding:6px;z-index:9;font:13px system-ui,sans-serif}
+#qpIn{width:100%;background:#3c3c3c;color:#ddd;border:1px solid #007fd4;outline:0;padding:5px 8px;font:inherit;border-radius:2px}
+#qpList{list-style:none;padding:4px 0 0;margin:0}
+#qpList li{padding:4px 10px;border-radius:3px;cursor:pointer;display:flex;justify-content:space-between}
+#qpList li.sel{background:#04395e;color:#fff}
+#qpList small{opacity:.6}
 #help,#gear{background:none;border:0;color:inherit;font:inherit;cursor:pointer;padding:0 4px}
 </style>
 <header id="head"></header>
+<div id="ribbon" hidden><fieldset><div class="grp"><button value="dev"><b>💻</b>개발자</button><button value="office"><b>📊</b>오피스</button></div><span class="cap">테마</span></fieldset></div>
 <ol id="log"></ol>
 <form id="f"><input id="nick" maxlength="20" placeholder="이름" autocomplete="off"><span id="pr"></span><input id="msg" maxlength="1000" required autocomplete="off"></form>
 <footer><span id="users"></span><span><span id="typing"></span> <button id="gear" title="설정"></button> <button id="help" title="사용법">?</button></span></footer>
-<dialog id="settings"><form method="dialog">
-  <h2>⚙️ 설정</h2>
-  <details><summary>🎨 테마 설정</summary>
-    <div class="themes">
-      <button value="dev">💻 개발자<small>VS Code 화면</small></button>
-      <button value="office">📊 오피스<small>엑셀 화면</small></button>
-    </div>
-  </details>
-  <p style="margin-top:14px"><button value="">닫기</button></p>
-</form></dialog>
+<div id="qp" hidden><input id="qpIn" placeholder="색 테마 선택 (↑↓ 이동, Enter 선택, Esc 닫기)" autocomplete="off"><ul id="qpList"></ul></div>
 <dialog id="guide"><form method="dialog">
   <h2>👋 시작하기</h2>
   <ul>
@@ -82,7 +86,7 @@ dialog .themes button.on{border-color:#3b82f6}
         <li><code>/shake</code> 같은 방 사람들 화면 흔들기 📳</li>
         <li><code>/help</code> 이 안내 열기</li>
       </ul></li>
-    <li><b>테마 바꾸기</b> — <b>설정</b>(엑셀: 위 메뉴줄) / <b>⚙ Settings</b>(dev: 아래 상태바) → <b>테마 설정</b>. 고른 테마는 기억됨</li>
+    <li><b>테마 바꾸기</b> — 엑셀: 위 메뉴줄 <b>설정</b> 탭 → 리본에서 선택 / dev: 아래 상태바 <b>⚙</b> → 위에 뜨는 목록에서 선택. 고른 테마는 기억됨</li>
     <li><b>방 나누기</b> — 주소 끝에 <code>#방이름</code>, 같은 방끼리만 대화가 보임</li>
   </ul>
   <p>⚠️ 링크를 아는 누구나 볼 수 있어요. 업무·개인 정보는 적지 마세요.</p>
@@ -146,13 +150,37 @@ const t = T[theme]
 document.title = t.title; head.textContent = t.head; pr.textContent = t.prompt
 nick.value = me
 help.textContent = t.help; help.onclick = () => guide.showModal()
-gear.textContent = t.gear; gear.onclick = () => { settings.returnValue = ''; settings.showModal() }
-if (theme === 'office') head.append(' ', gear, ' ', help)   // 엑셀은 리본 메뉴 끝자리
-settings.querySelector(`[value=${theme}]`).classList.add('on')
-settings.onclose = () => { const v = settings.returnValue
-  if (!v || v === theme) return
+gear.textContent = t.gear
+const THEMES = [['dev', '개발자', 'VS Code'], ['office', '오피스', 'Excel']]
+const setTheme = v => { if (v === theme) return
   store.set('theme', v)
   const u = new URL(location); u.searchParams.set('theme', v); location.href = u }   // 주소에도 반영 (#방 유지)
+if (theme === 'office') {   // 엑셀: '설정' 탭 → 리본 펼침 (실제 엑셀 리본처럼)
+  head.append(' ', gear, ' ', help)
+  ribbon.querySelector(`[value=${theme}]`).classList.add('on')
+  gear.onclick = () => { ribbon.hidden = !ribbon.hidden; gear.classList.toggle('on', !ribbon.hidden) }
+  ribbon.onclick = e => { const b = e.target.closest('button'); if (b) setTheme(b.value) }
+} else {                    // VS Code: ⚙ → 상단 Quick Pick (Color Theme 선택처럼)
+  let sel = 0
+  const draw = () => { const q = qpIn.value.toLowerCase()
+    const items = THEMES.filter(x => x.join(' ').toLowerCase().includes(q))
+    sel = Math.min(sel, Math.max(items.length - 1, 0))
+    qpList.replaceChildren(...items.map(([v, name, desc], i) => { const li = el('li', null, i === sel ? 'sel' : '')
+      li.append(el('span', (v === theme ? '✓ ' : '   ') + name), el('small', desc))
+      li.onmousedown = e => { e.preventDefault(); setTheme(v) }; return li }))
+    return items }
+  const close = () => { qp.hidden = true; msg.focus() }
+  gear.onclick = () => { qp.hidden = false; qpIn.value = ''; sel = THEMES.findIndex(x => x[0] === theme); draw(); qpIn.focus() }
+  qpIn.oninput = () => { sel = 0; draw() }
+  qpIn.onblur = close
+  qpIn.onkeydown = e => { const items = draw()
+    if (e.key === 'ArrowDown') sel = (sel + 1) % items.length
+    else if (e.key === 'ArrowUp') sel = (sel - 1 + items.length) % items.length
+    else if (e.key === 'Enter' && items[sel]) setTheme(items[sel][0])
+    else if (e.key === 'Escape') { e.stopPropagation(); return close() }   // 보스 키로 안 넘어가게
+    else return
+    e.preventDefault(); draw() }
+}
 guide.onclose = () => { try { localStorage.guideSeen = 1 } catch {} (me ? msg : nick).focus() }
 let seen; try { seen = localStorage.guideSeen } catch {}
 seen ? (me ? msg : nick).focus() : guide.showModal()
